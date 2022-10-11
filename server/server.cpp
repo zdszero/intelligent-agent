@@ -2,15 +2,23 @@
 
 #include <fcntl.h>
 
-void TraverseConn::Init(int sockfd, const sockaddr_in& addr, RedisConn* rconn, RedisConn* rconnm, char* host_name) {
+void TransferConn::Init(int sockfd, const sockaddr_in& addr, RedisConn* rconn, RedisConn* rconnm, char* host_name, int epollfd) {
     sockfd_ = sockfd;
     redis_conn_ = rconn;
+    epollfd_ = epollfd;
+
+    IOWrapper::AddFd(epollfd_, sockfd, false);
 }
 
-void TraverseConn::Process() {
+void TransferConn::CloseConn() {
+    IOWrapper::RemoveFd(epollfd_, sockfd_);
+    sockfd_ = -1;
+}
+
+void TransferConn::Process() {
     struct sockaddr addr;
     socklen_t socklen;
-    for (;;) {
+    while (true) {
         int fd = accept(sockfd_, &addr, &socklen);
         // get client id from peer
         SysMsg msg;
@@ -48,18 +56,19 @@ int ProxyConn::tcpDial(const std::string& host, int port) {
     return -1;
 }
 
-void ProxyConn::closeConn() {
-    IOWrapper::RemoveFd(sockfd_);
+void ProxyConn::CloseConn() {
+    IOWrapper::RemoveFd(epollfd_, sockfd_);
     sockfd_ = -1;
 }
 
 
-void ProxyConn::Init(int sockfd, const sockaddr_in& addr, RedisConn* rconn, RedisConn* rconnm, char* host_name) {
+void ProxyConn::Init(int sockfd, const sockaddr_in& addr, RedisConn* rconn, RedisConn* rconnm, char* host_name, int epollfd) {
     sockfd_ = sockfd, address_ = addr;
     redis_conn_ = rconn;
     redis_conf_conn_ = rconnm;
     host_ = host_name;
-    IOWrapper::AddFd(sockfd, true);
+    epollfd_ = epollfd;
+    IOWrapper::AddFd(epollfd, sockfd, false);
     init();
 }
 
@@ -110,7 +119,7 @@ int ProxyConn::runProxyLoop() {
 void ProxyConn::Process() {
     client_id_ = parseClient();
     if (client_id_.size() == 0) {
-        closeConn();
+        CloseConn();
         return;
     }
 #ifdef _WITH_CERT_
@@ -124,10 +133,10 @@ void ProxyConn::Process() {
         logTraverse(prevProxy, client_id_);
     }
     if (setLocalProxy() < 0) {
-        closeConn();
+        CloseConn();
         return;
     }
     int ret = runProxyLoop();
-    IOWrapper::ModFd(sockfd_, EPOLLOUT);
-    closeConn();
+    IOWrapper::ModFd(epollfd_, sockfd_, EPOLLOUT);
+    CloseConn();
 }

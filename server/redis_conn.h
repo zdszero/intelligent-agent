@@ -1,5 +1,5 @@
-#ifndef _REDIS_CONN_
-#define _REDIS_CONN_
+#pragma once
+
 #include <hiredis/hiredis.h>
 #include <string>
 #include <vector>
@@ -72,5 +72,3 @@ public:
 private:
     redisContext* _connect;
 };
-
-#endif

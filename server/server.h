@@ -29,28 +29,32 @@ enum class ConnStatus {
     END
 };
 
-class TraverseConn {
+class TransferConn {
    public:
-    TraverseConn() {}
-    ~TraverseConn() {}
-    void Init(int sockfd, const sockaddr_in& addr, RedisConn* rconn, RedisConn* rconnm, char* host_name);
+    TransferConn() {}
+    ~TransferConn() {}
+    void Init(int sockfd, const sockaddr_in& addr, RedisConn* rconn, RedisConn* rconnm, char* host_name, int epollfd);
     void Process();
+    void CloseConn();
 
    private:
     // listening socket fd
     int sockfd_;
     RedisConn* redis_conn_;
+    int epollfd_;
 };
 
 class ProxyConn {
    public:
     ProxyConn();
     ~ProxyConn();
-    void Init(int sockfd, const sockaddr_in& addr, RedisConn* rconn, RedisConn* rconnm, char* host_name);
+    void Init(int sockfd, const sockaddr_in& addr, RedisConn* rconn, RedisConn* rconnm, char* host_name, int epollfd);
     void Process();
+    void CloseConn();
 
    private:
     // host name and address
+    int epollfd_;
     char* host_;
     sockaddr_in address_;
     ConnStatus conn_status_;
@@ -60,7 +64,6 @@ class ProxyConn {
     RedisConn* redis_conf_conn_;
 
     void init();
-    void closeConn();
     std::string parseClient();
     std::string clientVarify();
     std::string getPrevProxy();

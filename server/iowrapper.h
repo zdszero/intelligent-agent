@@ -9,8 +9,6 @@
 
 #include "sysmsg.h"
 
-extern int epollfd;
-
 class IOWrapper {
    public:
     IOWrapper() = default;
@@ -23,7 +21,7 @@ class IOWrapper {
         return old_op;
     }
 
-    static void AddFd(int fd, bool one_shot) {
+    static void AddFd(int epollfd, int fd, bool one_shot) {
         epoll_event event;
         event.data.fd = fd;
         event.events = EPOLLIN | EPOLLET | EPOLLRDHUP;
@@ -34,12 +32,12 @@ class IOWrapper {
         SetNonBlocking(fd);
     }
 
-    static void RemoveFd(int fd) {
+    static void RemoveFd(int epollfd, int fd) {
         epoll_ctl(epollfd, EPOLL_CTL_DEL, fd, 0);
         close(fd);
     }
 
-    static void ModFd(int fd, int ev) {
+    static void ModFd(int epollfd, int fd, int ev) {
         epoll_event event;
         event.data.fd = fd;
         event.events = ev | EPOLLET | EPOLLONESHOT | EPOLLHUP;
