@@ -31,48 +31,15 @@ enum class ConnStatus {
 
 class TraverseConn {
    public:
-    TraverseConn(char* host, RedisConn* redis_conn, IOWrapper *io) : redis_conn_(redis_conn), io_(io) {
-#ifdef IPPROTO_MPTCP
-        m_sockfd = socket(AF_INET, SOCK_STREAM, IPPROTO_MPTCP);
-#else
-        sockfd_ = socket(AF_INET, SOCK_STREAM, 0);
-#endif
-        sockaddr_in addr;
-        bzero(&addr, sizeof(sockaddr_in));
-        addr.sin_family = AF_INET;
-        inet_pton(AF_INET, host, &addr.sin_addr);
-        addr.sin_port = PROXY_TRANVERSE_PORT;
-        bind(sockfd_, (struct sockaddr*)&addr, sizeof(struct sockaddr));
-        listen(sockfd_, 1);
-    }
-    ~TraverseConn() { close(sockfd_); }
-    void Process() {
-        std::thread([this]() {
-            struct sockaddr addr;
-            socklen_t socklen;
-            int fd = accept(sockfd_, &addr, &socklen);
-            // get client id from peer
-            SysMsg msg;
-            if (!io_->ReadSysMsg(fd, msg)) {
-                fprintf(stderr, "TraverseConn fail to receive client address from peer\n");
-                exit(1);
-            }
-            std::string client_id(msg.buf);
-            // get all the log entries from redis
-            std::vector<std::string> log_entries;
-            redis_conn_->getLog(client_id, log_entries);
-            for (const string& entry : log_entries) {
-                io_->SendSysMsg(fd, MsgWrapper::wrap(entry));
-            }
-            close(fd);
-        });
-    }
+    TraverseConn() {}
+    ~TraverseConn() {}
+    void Init(int sockfd, const sockaddr_in& addr, RedisConn* rconn, RedisConn* rconnm, char* host_name);
+    void Process();
 
    private:
     // listening socket fd
     int sockfd_;
     RedisConn* redis_conn_;
-    IOWrapper *io_;
 };
 
 class ProxyConn {
@@ -86,13 +53,11 @@ class ProxyConn {
     // host name and address
     char* host_;
     sockaddr_in address_;
-    IOWrapper *io_;
     ConnStatus conn_status_;
     int sockfd_;
     string client_id_;
     RedisConn* redis_conn_;
     RedisConn* redis_conf_conn_;
-    TraverseConn *traverse_conn_;
 
     void init();
     void closeConn();

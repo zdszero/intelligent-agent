@@ -9,42 +9,44 @@
 
 #include "sysmsg.h"
 
+extern int epollfd;
+
 class IOWrapper {
    public:
     IOWrapper() = default;
     ~IOWrapper() = default;
 
-    int SetNonBlocking(int fd) {
+    static int SetNonBlocking(int fd) {
         int old_op = fcntl(fd, F_GETFL);
         int new_op = old_op | O_NONBLOCK;
         fcntl(fd, F_SETFL, new_op);
         return old_op;
     }
 
-    void AddFd(int fd, bool one_shot) {
+    static void AddFd(int fd, bool one_shot) {
         epoll_event event;
         event.data.fd = fd;
         event.events = EPOLLIN | EPOLLET | EPOLLRDHUP;
         if (one_shot) {
             event.events |= EPOLLONESHOT;
         }
-        epoll_ctl(epollfd_, EPOLL_CTL_ADD, fd, &event);
+        epoll_ctl(epollfd, EPOLL_CTL_ADD, fd, &event);
         SetNonBlocking(fd);
     }
 
-    void RemoveFd(int fd) {
-        epoll_ctl(epollfd_, EPOLL_CTL_DEL, fd, 0);
+    static void RemoveFd(int fd) {
+        epoll_ctl(epollfd, EPOLL_CTL_DEL, fd, 0);
         close(fd);
     }
 
-    void ModFd(int fd, int ev) {
+    static void ModFd(int fd, int ev) {
         epoll_event event;
         event.data.fd = fd;
         event.events = ev | EPOLLET | EPOLLONESHOT | EPOLLHUP;
-        epoll_ctl(epollfd_, EPOLL_CTL_MOD, fd, &event);
+        epoll_ctl(epollfd, EPOLL_CTL_MOD, fd, &event);
     }
 
-    void SendSysMsg(int fd, const SysMsg &msg) {
+    static void SendSysMsg(int fd, const SysMsg &msg) {
         size_t send_len = sizeof(uint32_t) + strlen(msg.buf);
         const char *data = msg.Serialized();
         if (!sendBytes(fd, data, send_len)) {
@@ -53,7 +55,7 @@ class IOWrapper {
         }
     }
 
-    bool ReadSysMsg(int fd, SysMsg &msg) {
+    static bool ReadSysMsg(int fd, SysMsg &msg) {
         char *buf = readBytes(4, fd);
         if (buf == nullptr) {
             return false;
@@ -69,9 +71,7 @@ class IOWrapper {
     }
 
    private:
-    int epollfd_;
-
-    char *readBytes(int fd, size_t len) {
+    static char *readBytes(int fd, size_t len) {
         char *buf = (char *)malloc((sizeof(char) + 1) * len);
         int read_idx = 0;
         size_t bytes_read;
@@ -90,7 +90,7 @@ class IOWrapper {
         return buf;
     }
 
-    bool sendBytes(int fd, const char *data, size_t len) {
+    static bool sendBytes(int fd, const char *data, size_t len) {
         int write_idx = 0;
         size_t bytes_written;
         while (write_idx != len) {

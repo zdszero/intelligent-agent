@@ -2,6 +2,33 @@
 
 #include <fcntl.h>
 
+void TraverseConn::Init(int sockfd, const sockaddr_in& addr, RedisConn* rconn, RedisConn* rconnm, char* host_name) {
+    sockfd_ = sockfd;
+    redis_conn_ = rconn;
+}
+
+void TraverseConn::Process() {
+    struct sockaddr addr;
+    socklen_t socklen;
+    for (;;) {
+        int fd = accept(sockfd_, &addr, &socklen);
+        // get client id from peer
+        SysMsg msg;
+        if (!IOWrapper::ReadSysMsg(fd, msg)) {
+            fprintf(stderr, "TraverseConn fail to receive client address from peer\n");
+            exit(1);
+        }
+        std::string client_id(msg.buf);
+        // get all the log entries from redis
+        std::vector<std::string> log_entries;
+        redis_conn_->getLog(client_id, log_entries);
+        for (const string& entry : log_entries) {
+            IOWrapper::SendSysMsg(fd, MsgWrapper::wrap(entry));
+        }
+        close(fd);
+    }
+}
+
 int ProxyConn::tcpDial(const std::string& host, int port) {
     sockaddr_in address;
     bzero(&address, sizeof(address));
@@ -13,7 +40,7 @@ int ProxyConn::tcpDial(const std::string& host, int port) {
 #else
     int sockfd = socket(AF_INET, SOCK_STREAM, 0);
 #endif
-    io_->SetNonBlocking(sockfd);
+    IOWrapper::SetNonBlocking(sockfd);
     int ret = connect(sockfd, (struct sockaddr*)&address, sizeof(address));
     if (ret == 0 || errno == EINPROGRESS) {
         return sockfd;
@@ -22,7 +49,7 @@ int ProxyConn::tcpDial(const std::string& host, int port) {
 }
 
 void ProxyConn::closeConn() {
-    io_->RemoveFd(sockfd_);
+    IOWrapper::RemoveFd(sockfd_);
     sockfd_ = -1;
 }
 
@@ -32,11 +59,8 @@ void ProxyConn::Init(int sockfd, const sockaddr_in& addr, RedisConn* rconn, Redi
     redis_conn_ = rconn;
     redis_conf_conn_ = rconnm;
     host_ = host_name;
-    io_->AddFd(sockfd, true);
+    IOWrapper::AddFd(sockfd, true);
     init();
-
-    traverse_conn_ = new TraverseConn(host_, redis_conn_, io_);
-    traverse_conn_->Process();
 }
 
 void ProxyConn::init() {
@@ -49,7 +73,7 @@ int ProxyConn::setLocalProxy() { return redis_conf_conn_->setProxy_map(client_id
 
 std::string ProxyConn::parseClient() {
     SysMsg msg;
-    if (!io_->ReadSysMsg(sockfd_, msg)) {
+    if (!IOWrapper::ReadSysMsg(sockfd_, msg)) {
         return {""};
     }
     string client_id = string(msg.buf);
@@ -62,10 +86,10 @@ int ProxyConn::logTraverse(const string& remote_proxy, const string& client_id_)
     int sockfd = tcpDial(remote_proxy, PROXY_TRANVERSE_PORT);
     // send client id to peer
     SysMsg client_msg = MsgWrapper::wrap(client_id_);
-    io_->SendSysMsg(sockfd, client_msg);
+    IOWrapper::SendSysMsg(sockfd, client_msg);
     // read data from peer
     SysMsg msg;
-    while (io_->ReadSysMsg(sockfd, msg)) {
+    while (IOWrapper::ReadSysMsg(sockfd, msg)) {
         redis_conn_->appendLog(client_id_, msg.buf);
         free(msg.buf);
     }
@@ -75,7 +99,7 @@ int ProxyConn::logTraverse(const string& remote_proxy, const string& client_id_)
 
 int ProxyConn::runProxyLoop() {
     SysMsg msg;
-    while (io_->ReadSysMsg(sockfd_, msg)) {
+    while (IOWrapper::ReadSysMsg(sockfd_, msg)) {
         redis_conn_->appendLog(client_id_, msg.buf);
         free(msg.buf);
     }
@@ -104,6 +128,6 @@ void ProxyConn::Process() {
         return;
     }
     int ret = runProxyLoop();
-    io_->ModFd(sockfd_, EPOLLOUT);
+    IOWrapper::ModFd(sockfd_, EPOLLOUT);
     closeConn();
 }
