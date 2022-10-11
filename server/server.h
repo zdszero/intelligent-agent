@@ -52,23 +52,25 @@ class TraverseConn {
     }
     ~TraverseConn() { close(sockfd_); }
     void Process() {
-        struct sockaddr addr;
-        socklen_t socklen;
-        int fd = accept(sockfd_, &addr, &socklen);
-        // get client id from peer
-        SysMsg msg;
-        if (!io_->ReadSysMsg(fd, msg)) {
-            fprintf(stderr, "TraverseConn fail to receive client address from peer\n");
-            exit(1);
-        }
-        std::string client_id(msg.buf);
-        // get all the log entries from redis
-        std::vector<std::string> log_entries;
-        redis_conn_->getLog(client_id, log_entries);
-        for (const string& entry : log_entries) {
-            io_->SendSysMsg(fd, MsgWrapper::wrap(entry));
-        }
-        close(fd);
+        std::thread([this]() {
+            struct sockaddr addr;
+            socklen_t socklen;
+            int fd = accept(sockfd_, &addr, &socklen);
+            // get client id from peer
+            SysMsg msg;
+            if (!io_->ReadSysMsg(fd, msg)) {
+                fprintf(stderr, "TraverseConn fail to receive client address from peer\n");
+                exit(1);
+            }
+            std::string client_id(msg.buf);
+            // get all the log entries from redis
+            std::vector<std::string> log_entries;
+            redis_conn_->getLog(client_id, log_entries);
+            for (const string& entry : log_entries) {
+                io_->SendSysMsg(fd, MsgWrapper::wrap(entry));
+            }
+            close(fd);
+        });
     }
 
    private:
@@ -82,12 +84,12 @@ class ProxyConn {
    public:
     ProxyConn();
     ~ProxyConn();
-    void Init(int sockfd, const sockaddr_in& addr, RedisConn* rconn, RedisConn* rconnm, const char* host_name);
+    void Init(int sockfd, const sockaddr_in& addr, RedisConn* rconn, RedisConn* rconnm, char* host_name);
     void Process();
 
    private:
     // host name and address
-    const char* host_;
+    char* host_;
     sockaddr_in address_;
     IOWrapper *io_;
     ConnStatus conn_status_;
@@ -95,6 +97,7 @@ class ProxyConn {
     string client_id_;
     RedisConn* redis_conn_;
     RedisConn* redis_conf_conn_;
+    TraverseConn *traverse_conn_;
 
     void init();
     void closeConn();

@@ -27,13 +27,16 @@ void ProxyConn::closeConn() {
 }
 
 
-void ProxyConn::Init(int sockfd, const sockaddr_in& addr, RedisConn* rconn, RedisConn* rconnm, const char* host_name) {
+void ProxyConn::Init(int sockfd, const sockaddr_in& addr, RedisConn* rconn, RedisConn* rconnm, char* host_name) {
     sockfd_ = sockfd, address_ = addr;
     redis_conn_ = rconn;
     redis_conf_conn_ = rconnm;
     host_ = host_name;
     io_->AddFd(sockfd, true);
     init();
+
+    traverse_conn_ = new TraverseConn(host_, redis_conn_, io_);
+    traverse_conn_->Process();
 }
 
 void ProxyConn::init() {
