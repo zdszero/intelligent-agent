@@ -29,7 +29,7 @@ private:
 
 template< typename T >
 threadpool<T>::threadpool(int thread_num, int max_req) : 
-    m_thread_number(thread_num), m_max_request(max_req), m_stop(false), m_threads(NULL) {
+    m_thread_number(thread_num), m_max_requests(max_req), m_stop(false), m_threads(NULL) {
     if((thread_num <= 0) || (max_req <= 0)) {
         throw std::exception();
     }
@@ -39,7 +39,7 @@ threadpool<T>::threadpool(int thread_num, int max_req) :
     }
     for (int i = 0; i < thread_num; ++i) {
         // 传入this指针以使得线程能够访问类内资源
-        if (pthread_create(m_threads + i, nullptr, worker, NULL, this) != 0) {
+        if (pthread_create(m_threads + i, nullptr, worker, this) != 0) {
             delete [] m_threads;
             throw std::exception();
         }
@@ -92,6 +92,6 @@ void threadpool<T>::run() {
         if (request == nullptr) {
             continue;
         }
-        request.process();
+        request->Process();
     }
 }

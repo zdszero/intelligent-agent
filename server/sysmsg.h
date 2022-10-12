@@ -10,7 +10,7 @@ struct SysMsg {
     char* buf;
     const char* Serialized() const {
         char* ptr = (char*)&len;
-        char* data = (char*)malloc(sizeof(int) + sizeof(char) * (len + 1));
+        char* data = (char*)malloc(sizeof(uint32_t) + sizeof(char) * (len + 1));
         data[0] = ptr[0];
         data[1] = ptr[1];
         data[2] = ptr[2];

@@ -15,9 +15,6 @@
 
 typedef uint8_t server_t;
 
-extern int addfd(int epollfd, int fd, bool one_shot);
-extern int removefd(int epollfd, int fd);
-
 void add_sig(int sig, void(handler)(int), bool restart = true) {
     struct sigaction sa;
     memset(&sa, '\0', sizeof(sa));
@@ -101,8 +98,8 @@ int main(int argc, char* argv[]) {
     epoll_event events[MAX_EVENT_NUMBER];
     int epollfd = epoll_create(5);
     assert(epollfd != -1);
-    addfd(epollfd, proxy_fd, false);
-    addfd(epollfd, tranv_fd, false);
+    IOWrapper::AddFd(epollfd, proxy_fd, false);
+    IOWrapper::AddFd(epollfd, tranv_fd, false);
     while (true) {
         int number = epoll_wait(epollfd, events, MAX_EVENT_NUMBER, -1);
         if ((number < 0) && (errno != EINTR)) {

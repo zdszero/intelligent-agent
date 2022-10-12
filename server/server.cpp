@@ -7,7 +7,7 @@ void TransferConn::Init(int sockfd, const sockaddr_in& addr, RedisConn* rconn, R
     redis_conn_ = rconn;
     epollfd_ = epollfd;
 
-    IOWrapper::AddFd(epollfd_, sockfd, false);
+    IOWrapper::AddFd(epollfd_, sockfd, true);
 }
 
 void TransferConn::CloseConn() {
@@ -22,7 +22,7 @@ void TransferConn::Process() {
         int fd = accept(sockfd_, &addr, &socklen);
         // get client id from peer
         SysMsg msg;
-        if (!IOWrapper::ReadSysMsg(fd, msg)) {
+        if (!IOWrapper::ReadSysMsg(fd, msg, true)) {
             fprintf(stderr, "TraverseConn fail to receive client address from peer\n");
             exit(1);
         }
@@ -68,12 +68,12 @@ void ProxyConn::Init(int sockfd, const sockaddr_in& addr, RedisConn* rconn, Redi
     redis_conf_conn_ = rconnm;
     host_ = host_name;
     epollfd_ = epollfd;
-    IOWrapper::AddFd(epollfd, sockfd, false);
+    IOWrapper::AddFd(epollfd, sockfd, true);
     init();
 }
 
 void ProxyConn::init() {
-    conn_status_ = ConnStatus::UNVERIFT;
+    conn_status_ = ConnStatus::UNVERIFIED;
 }
 
 std::string ProxyConn::getPrevProxy() { return redis_conf_conn_->getProxy_map(client_id_); }
@@ -82,7 +82,7 @@ int ProxyConn::setLocalProxy() { return redis_conf_conn_->setProxy_map(client_id
 
 std::string ProxyConn::parseClient() {
     SysMsg msg;
-    if (!IOWrapper::ReadSysMsg(sockfd_, msg)) {
+    if (!IOWrapper::ReadSysMsg(sockfd_, msg, true)) {
         return {""};
     }
     string client_id = string(msg.buf);
@@ -98,7 +98,7 @@ int ProxyConn::logTraverse(const string& remote_proxy, const string& client_id_)
     IOWrapper::SendSysMsg(sockfd, client_msg);
     // read data from peer
     SysMsg msg;
-    while (IOWrapper::ReadSysMsg(sockfd, msg)) {
+    while (IOWrapper::ReadSysMsg(sockfd, msg, true)) {
         redis_conn_->appendLog(client_id_, msg.buf);
         free(msg.buf);
     }
@@ -108,35 +108,43 @@ int ProxyConn::logTraverse(const string& remote_proxy, const string& client_id_)
 
 int ProxyConn::runProxyLoop() {
     SysMsg msg;
-    while (IOWrapper::ReadSysMsg(sockfd_, msg)) {
+    while (IOWrapper::ReadSysMsg(sockfd_, msg, false)) {
         redis_conn_->appendLog(client_id_, msg.buf);
         free(msg.buf);
     }
     return msg.len;
 }
 
-// 处理入口函数
 void ProxyConn::Process() {
-    client_id_ = parseClient();
-    if (client_id_.size() == 0) {
-        CloseConn();
-        return;
-    }
+    if (conn_status_ == ConnStatus::UNVERIFIED) {
+        client_id_ = parseClient();
+        if (client_id_.size() == 0) {
+            CloseConn();
+            return;
+        }
 #ifdef _WITH_CERT_
-    if (!clientVarify()) {
-        close_conn();
-        return;
-    }
+        if (!clientVarify()) {
+            close_conn();
+            return;
+        }
 #endif
-    string prevProxy = getPrevProxy();
-    if (!prevProxy.empty() && prevProxy.compare(host_) != 0) {
-        logTraverse(prevProxy, client_id_);
-    }
-    if (setLocalProxy() < 0) {
+        string prevProxy = getPrevProxy();
+        if (!prevProxy.empty() && prevProxy.compare(host_) != 0) {
+            logTraverse(prevProxy, client_id_);
+        }
+        if (setLocalProxy() < 0) {
+            CloseConn();
+            return;
+        }
+        conn_status_ = ConnStatus::CONNECTED;
+    } else if (conn_status_ == ConnStatus::CONNECTED) {
+        int ret = runProxyLoop();
+        if (ret < 0) {
+            CloseConn();
+        }
+    } else {
         CloseConn();
-        return;
     }
-    int ret = runProxyLoop();
     IOWrapper::ModFd(epollfd_, sockfd_, EPOLLOUT);
-    CloseConn();
+    
 }

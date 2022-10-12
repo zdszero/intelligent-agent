@@ -40,7 +40,7 @@ class IOWrapper {
     static void ModFd(int epollfd, int fd, int ev) {
         epoll_event event;
         event.data.fd = fd;
-        event.events = ev | EPOLLET | EPOLLONESHOT | EPOLLHUP;
+        event.events = ev | EPOLLIN | EPOLLET | EPOLLONESHOT | EPOLLHUP;
         epoll_ctl(epollfd, EPOLL_CTL_MOD, fd, &event);
     }
 
@@ -53,14 +53,14 @@ class IOWrapper {
         }
     }
 
-    static bool ReadSysMsg(int fd, SysMsg &msg) {
-        char *buf = readBytes(4, fd);
+    static bool ReadSysMsg(int fd, SysMsg &msg, bool persist) {
+        char *buf = readBytes(4, fd, persist);
         if (buf == nullptr) {
             return false;
         }
         msg.len = *((uint32_t *)buf);
         free(buf);
-        buf = readBytes(msg.len, fd);
+        buf = readBytes(msg.len, fd, true);
         if (buf == nullptr) {
             return false;
         }
@@ -69,14 +69,17 @@ class IOWrapper {
     }
 
    private:
-    static char *readBytes(int fd, size_t len) {
-        char *buf = (char *)malloc((sizeof(char) + 1) * len);
+    static char *readBytes(int fd, size_t len, bool persist) {
+        char *buf = (char *)malloc(sizeof(char) * (len + 1));
         int read_idx = 0;
         size_t bytes_read;
         while (read_idx != len) {
             bytes_read = recv(fd, buf + read_idx, len - read_idx, 0);
             if (bytes_read == -1) {
                 if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                    if (!persist) {
+                        break;
+                    }
                     continue;
                 }
                 return nullptr;

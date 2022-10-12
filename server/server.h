@@ -23,7 +23,7 @@
 using namespace std;
 
 enum class ConnStatus {
-    UNVERIFT = 0,
+    UNVERIFIED = 0,
     CONNECTED,
     QUERY,
     END
@@ -31,8 +31,8 @@ enum class ConnStatus {
 
 class TransferConn {
    public:
-    TransferConn() {}
-    ~TransferConn() {}
+    TransferConn() = default;
+    ~TransferConn() = default;
     void Init(int sockfd, const sockaddr_in& addr, RedisConn* rconn, RedisConn* rconnm, char* host_name, int epollfd);
     void Process();
     void CloseConn();
@@ -46,8 +46,8 @@ class TransferConn {
 
 class ProxyConn {
    public:
-    ProxyConn();
-    ~ProxyConn();
+    ProxyConn() = default;
+    ~ProxyConn() = default;
     void Init(int sockfd, const sockaddr_in& addr, RedisConn* rconn, RedisConn* rconnm, char* host_name, int epollfd);
     void Process();
     void CloseConn();
