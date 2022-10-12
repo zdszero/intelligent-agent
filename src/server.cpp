@@ -33,7 +33,7 @@ void TransferConn::Process() {
     std::string client_id(msg.buf);
     // get all the log entries from redis
     std::vector<std::string> log_entries;
-    redis_conn_->getLog(client_id, log_entries);
+    redis_conn_->GetLog(client_id, log_entries);
     for (const string& entry : log_entries) {
         char buf[30];
         inet_ntop(AF_INET, &peer_addr_.sin_addr, buf, sizeof(peer_addr_));
@@ -78,9 +78,9 @@ void ProxyConn::Init(int sockfd, const sockaddr_in& addr, RedisConn* rconn, Redi
     IOWrapper::AddFd(epollfd, sockfd, true);
 }
 
-std::string ProxyConn::getPrevProxy() { return redis_conf_conn_->getProxy_map(client_id_); }
+std::string ProxyConn::getPrevProxy() { return redis_conf_conn_->GetProxyMap(client_id_); }
 
-int ProxyConn::setLocalProxy() { return redis_conf_conn_->setProxy_map(client_id_, host_); }
+int ProxyConn::setLocalProxy() { return redis_conf_conn_->SetProxyMap(client_id_, host_); }
 
 std::string ProxyConn::parseClient() {
     SysMsg msg;
@@ -103,7 +103,7 @@ int ProxyConn::logTransfer(const string& remote_proxy, const string& client_id_)
     // read data from peer
     SysMsg msg;
     while (IOWrapper::ReadSysMsg(sockfd, msg, true)) {
-        redis_conn_->appendLog(client_id_, msg.buf);
+        redis_conn_->AppendLog(client_id_, msg.buf);
         free(msg.buf);
     }
     close(sockfd);
@@ -114,7 +114,7 @@ int ProxyConn::runProxyLoop() {
     DPrintf("enter proxy loop\n");
     SysMsg msg;
     while (IOWrapper::ReadSysMsg(sockfd_, msg, true)) {
-        redis_conn_->appendLog(client_id_, msg.buf);
+        redis_conn_->AppendLog(client_id_, msg.buf);
         free(msg.buf);
     }
     return msg.len;
@@ -134,6 +134,7 @@ void ProxyConn::Process() {
     //         }
     // #endif
     string prevProxy = getPrevProxy();
+    DPrintf("prev proxy = %s\n", prevProxy.c_str());
     if (!prevProxy.empty() && prevProxy.compare(host_) != 0) {
         logTransfer(prevProxy, client_id_);
     }

@@ -34,7 +34,7 @@ void show_error(int connfd, const char* info) {
 }
 
 int main(int argc, char* argv[]) {
-    const char* host = "localhost";
+    const char* host = "0.0.0.0";
     int tranv_port = PROXY_TRANSFER_PORT;
     int proxy_port = PROXY_AGENT_PROT;
 
@@ -45,8 +45,8 @@ int main(int argc, char* argv[]) {
     }
 
     RedisConn redis_local, redis_remote;
-    redis_local.connect("localhost", 7777);
-    redis_remote.connect("zds-704", 7777);
+    redis_local.Connect("localhost", 7777);
+    redis_remote.Connect("zds-704", 7777);
 
     char host_name[MAX_HOST_LEN];
 
