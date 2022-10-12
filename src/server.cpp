@@ -1,4 +1,5 @@
 #include "server.h"
+#include "log.h"
 
 #include <fcntl.h>
 
@@ -68,12 +69,9 @@ void ProxyConn::Init(int sockfd, const sockaddr_in& addr, RedisConn* rconn, Redi
     redis_conf_conn_ = rconnm;
     host_ = host_name;
     epollfd_ = epollfd;
-    IOWrapper::AddFd(epollfd, sockfd, true);
-    init();
-}
-
-void ProxyConn::init() {
     conn_status_ = ConnStatus::UNVERIFIED;
+    inited_ = true;
+    IOWrapper::AddFd(epollfd, sockfd, true);
 }
 
 std::string ProxyConn::getPrevProxy() { return redis_conf_conn_->getProxy_map(client_id_); }
@@ -92,7 +90,7 @@ std::string ProxyConn::parseClient() {
 }
 
 int ProxyConn::logTraverse(const string& remote_proxy, const string& client_id_) {
-    int sockfd = tcpDial(remote_proxy, PROXY_TRANVERSE_PORT);
+    int sockfd = tcpDial(remote_proxy, PROXY_TRANSFER_PORT);
     // send client id to peer
     SysMsg client_msg = MsgWrapper::wrap(client_id_);
     IOWrapper::SendSysMsg(sockfd, client_msg);
@@ -107,6 +105,7 @@ int ProxyConn::logTraverse(const string& remote_proxy, const string& client_id_)
 }
 
 int ProxyConn::runProxyLoop() {
+    DPrintf("enter proxy loop\n");
     SysMsg msg;
     while (IOWrapper::ReadSysMsg(sockfd_, msg, false)) {
         redis_conn_->appendLog(client_id_, msg.buf);
@@ -118,24 +117,25 @@ int ProxyConn::runProxyLoop() {
 void ProxyConn::Process() {
     if (conn_status_ == ConnStatus::UNVERIFIED) {
         client_id_ = parseClient();
+        DPrintf("connected with client %s", client_id_.c_str());
         if (client_id_.size() == 0) {
             CloseConn();
             return;
         }
-#ifdef _WITH_CERT_
-        if (!clientVarify()) {
-            close_conn();
-            return;
-        }
-#endif
-        string prevProxy = getPrevProxy();
-        if (!prevProxy.empty() && prevProxy.compare(host_) != 0) {
-            logTraverse(prevProxy, client_id_);
-        }
-        if (setLocalProxy() < 0) {
-            CloseConn();
-            return;
-        }
+// #ifdef _WITH_CERT_
+//         if (!clientVarify()) {
+//             close_conn();
+//             return;
+//         }
+// #endif
+        // string prevProxy = getPrevProxy();
+        // if (!prevProxy.empty() && prevProxy.compare(host_) != 0) {
+        //     logTraverse(prevProxy, client_id_);
+        // }
+        // if (setLocalProxy() < 0) {
+        //     CloseConn();
+        //     return;
+        // }
         conn_status_ = ConnStatus::CONNECTED;
     } else if (conn_status_ == ConnStatus::CONNECTED) {
         int ret = runProxyLoop();

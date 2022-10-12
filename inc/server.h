@@ -4,7 +4,7 @@
 #define READ_BUFFER_SIZE 1024
 #define WRITE_BUFFER_SIZE 1024
 
-#define PROXY_TRANVERSE_PORT 30072
+#define PROXY_TRANSFER_PORT 30072
 #define PROXY_AGENT_PROT 30071
 
 #include <arpa/inet.h>
@@ -51,19 +51,20 @@ class ProxyConn {
     void Init(int sockfd, const sockaddr_in& addr, RedisConn* rconn, RedisConn* rconnm, char* host_name, int epollfd);
     void Process();
     void CloseConn();
+    bool Inited() { return inited_; }
 
    private:
     // host name and address
     int epollfd_;
     char* host_;
     sockaddr_in address_;
+    bool inited_{false};
     ConnStatus conn_status_;
     int sockfd_;
     string client_id_;
     RedisConn* redis_conn_;
     RedisConn* redis_conf_conn_;
 
-    void init();
     std::string parseClient();
     std::string clientVarify();
     std::string getPrevProxy();

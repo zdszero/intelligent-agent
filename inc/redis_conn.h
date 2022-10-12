@@ -1,5 +1,6 @@
 #pragma once
 
+#include "log.h"
 #include <hiredis/hiredis.h>
 #include <string>
 #include <vector>
@@ -26,6 +27,7 @@ public:
     }
 
     void appendLog(std::string client_id, const char* log) {
+        DPrintf("rpush %s:%s\n", client_id.c_str(), log);
         redisCommand(this->_connect, "RPUSH %s %s", client_id.c_str(), log);
     }
 

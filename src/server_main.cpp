@@ -2,6 +2,7 @@
 
 #include <cassert>
 
+#include "log.h"
 #include "server.h"
 #include "threadpool.h"
 
@@ -34,7 +35,7 @@ void show_error(int connfd, const char* info) {
 
 int main(int argc, char* argv[]) {
     const char* host = "localhost";
-    int tranv_port = PROXY_TRANVERSE_PORT;
+    int tranv_port = PROXY_TRANSFER_PORT;
     int proxy_port = PROXY_AGENT_PROT;
 
     if (argc == 3) {
@@ -54,12 +55,14 @@ int main(int argc, char* argv[]) {
 
     threadpool<ProxyConn>* proxy_pool = NULL;
     threadpool<TransferConn>* tranv_pool = NULL;
+    DPrintf("???\n");
     try {
         proxy_pool = new threadpool<ProxyConn>(4, 1000);
         tranv_pool = new threadpool<TransferConn>(4, 1000);
     } catch (...) {
         return -1;
     }
+    DPrintf("???\n");
 
     server_t conn_type[MAX_FD];
     bzero(conn_type, sizeof(server_t) * MAX_FD);
@@ -116,7 +119,10 @@ int main(int argc, char* argv[]) {
                     continue;
                 }
                 conn_type[connfd] = SERVER_PROXY;
-                proxy_clients[connfd].Init(connfd, client_addr, &redis_local, &redis_remote, host_name, epollfd);
+                if (!proxy_clients[connfd].Inited()) {
+                    proxy_clients[connfd].Init(connfd, client_addr, &redis_local, &redis_remote, host_name, epollfd);
+                }
+                proxy_clients[connfd].Process();
             }
             if (sockfd == tranv_fd) {
                 sockaddr_in client_addr;
