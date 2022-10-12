@@ -117,7 +117,7 @@ int ProxyConn::runProxyLoop() {
 void ProxyConn::Process() {
     if (conn_status_ == ConnStatus::UNVERIFIED) {
         client_id_ = parseClient();
-        DPrintf("connected with client %s", client_id_.c_str());
+        DPrintf("connected with client %s\n", client_id_.c_str());
         if (client_id_.size() == 0) {
             CloseConn();
             return;

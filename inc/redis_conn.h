@@ -1,32 +1,30 @@
 #pragma once
 
-#include "log.h"
 #include <hiredis/hiredis.h>
+
 #include <string>
 #include <vector>
 
+#include "log.h"
+
 class RedisConn {
-public:
-    RedisConn(){}
-    ~RedisConn() {
-        this -> _connect = NULL;
-    }
-    bool connect(std::string host, int port)
-    {
+   public:
+    RedisConn() {}
+    ~RedisConn() { this->_connect = NULL; }
+    bool connect(std::string host, int port) {
         this->_connect = redisConnect(host.c_str(), port);
-        if(this->_connect != NULL && this->_connect->err)
-        {
+        if (this->_connect != NULL && this->_connect->err) {
             printf("connect error: %s\n", this->_connect->errstr);
             return 0;
         }
         return 1;
     }
-    
-    void appendLog(std::string client_id, std::string& log) {
-        redisCommand(this->_connect, "RPUSH %s %s", client_id.c_str(), log.c_str());
+
+    void appendLog(const std::string &client_id, std::string& log) {
+        appendLog(client_id, log.c_str());
     }
 
-    void appendLog(std::string client_id, const char* log) {
+    void appendLog(const std::string &client_id, const char* log) {
         DPrintf("rpush %s:%s\n", client_id.c_str(), log);
         redisCommand(this->_connect, "RPUSH %s %s", client_id.c_str(), log);
     }
@@ -52,8 +50,7 @@ public:
         }
     }
 
-    std::string getProxy_map(std::string& client_name)
-    {
+    std::string getProxy_map(std::string& client_name) {
         redisReply* _reply = (redisReply*)redisCommand(this->_connect, "HGET proxy_map %s", client_name.c_str());
         std::string str;
         if (_reply->type == REDIS_REPLY_STRING) {
@@ -63,14 +60,15 @@ public:
         return str;
     }
 
-    int setProxy_map(std::string& client_name, const char* host_name)
-    {
-        redisReply* _reply = (redisReply*)redisCommand(this->_connect, "HSET proxy_map %s %s", client_name.c_str(), host_name);
+    int setProxy_map(std::string& client_name, const char* host_name) {
+        redisReply* _reply =
+            (redisReply*)redisCommand(this->_connect, "HSET proxy_map %s %s", client_name.c_str(), host_name);
         if (_reply->type == REDIS_REPLY_ERROR) {
             return -1;
         }
         return 0;
     }
-private:
+
+   private:
     redisContext* _connect;
 };

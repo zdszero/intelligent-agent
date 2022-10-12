@@ -1,36 +1,40 @@
 #pragma once
 
-#include <list>
+#include <pthread.h>
+
 #include <cstdio>
 #include <exception>
-#include <pthread.h>
+#include <list>
+
 #include "locker.h"
+#include "log.h"
 
 // T request type
-template< typename T>
+template <typename T>
 class threadpool {
-public:
+   public:
     threadpool(int thread_number = 8, int max_request = 10000);
     ~threadpool();
-    bool append(T *request);
-private:
+    bool append(T* request);
+
+   private:
     static void* worker(void* arg);
     void run();
 
-private:
+   private:
     int m_thread_number;
     int m_max_requests;
     pthread_t* m_threads;
-    std::list< T* > m_workqueue; //请求队列
+    std::list<T*> m_workqueue;  //请求队列
     locker m_queuelocker;
     sem m_queuestat;
     bool m_stop;
 };
 
-template< typename T >
-threadpool<T>::threadpool(int thread_num, int max_req) : 
-    m_thread_number(thread_num), m_max_requests(max_req), m_stop(false), m_threads(NULL) {
-    if((thread_num <= 0) || (max_req <= 0)) {
+template <typename T>
+threadpool<T>::threadpool(int thread_num, int max_req)
+    : m_thread_number(thread_num), m_max_requests(max_req), m_stop(false), m_threads(NULL) {
+    if ((thread_num <= 0) || (max_req <= 0)) {
         throw std::exception();
     }
     m_threads = new pthread_t(m_thread_number);
@@ -40,24 +44,24 @@ threadpool<T>::threadpool(int thread_num, int max_req) :
     for (int i = 0; i < thread_num; ++i) {
         // 传入this指针以使得线程能够访问类内资源
         if (pthread_create(m_threads + i, nullptr, worker, this) != 0) {
-            delete [] m_threads;
+            delete[] m_threads;
             throw std::exception();
         }
         if (pthread_detach(m_threads[i]) != 0) {
-            delete [] m_threads;
+            delete[] m_threads;
             throw std::exception();
         }
     }
 }
 
-template< typename T >
+template <typename T>
 threadpool<T>::~threadpool() {
-    delete [] m_threads;
+    delete[] m_threads;
     m_stop = true;
 }
 
-template< typename T >
-bool threadpool<T>::append(T *request) {
+template <typename T>
+bool threadpool<T>::append(T* request) {
     m_queuelocker.lock();
     if (m_workqueue.size() > m_max_requests) {
         m_queuelocker.unlock();
@@ -69,17 +73,16 @@ bool threadpool<T>::append(T *request) {
     return true;
 }
 
-template< typename T >
-void *threadpool<T>::worker(void* arg) {
-    threadpool* pool = (threadpool *)arg;
+template <typename T>
+void* threadpool<T>::worker(void* arg) {
+    threadpool* pool = (threadpool*)arg;
     pool->run();
     return pool;
 }
 
-
-template< typename T >
+template <typename T>
 void threadpool<T>::run() {
-    while(!m_stop) {
+    while (!m_stop) {
         m_queuestat.wait();
         m_queuelocker.lock();
         if (m_workqueue.empty()) {

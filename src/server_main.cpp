@@ -55,14 +55,12 @@ int main(int argc, char* argv[]) {
 
     threadpool<ProxyConn>* proxy_pool = NULL;
     threadpool<TransferConn>* tranv_pool = NULL;
-    DPrintf("???\n");
     try {
-        proxy_pool = new threadpool<ProxyConn>(4, 1000);
-        tranv_pool = new threadpool<TransferConn>(4, 1000);
-    } catch (...) {
+        proxy_pool = new threadpool<ProxyConn>(2, 1000);
+        tranv_pool = new threadpool<TransferConn>(2, 1000);
+    } catch (std::exception &e) {
         return -1;
     }
-    DPrintf("???\n");
 
     server_t conn_type[MAX_FD];
     bzero(conn_type, sizeof(server_t) * MAX_FD);
