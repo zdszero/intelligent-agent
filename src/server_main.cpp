@@ -46,7 +46,7 @@ int main(int argc, char* argv[]) {
 
     RedisConn redis_local, redis_remote;
     redis_local.connect("localhost", 7777);
-    redis_remote.connect("localhost", 7777);
+    redis_remote.connect("zds-704", 7777);
 
     char host_name[MAX_HOST_LEN];
 

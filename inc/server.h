@@ -35,6 +35,7 @@ class TransferConn {
   private:
    // listening socket fd
    int sockfd_;
+   sockaddr_in peer_addr_;
    RedisConn* redis_conn_;
    int epollfd_;
 };
@@ -63,7 +64,7 @@ class ProxyConn {
    std::string parseClient();
    std::string clientVarify();
    std::string getPrevProxy();
-   int logTraverse(const string& remote_proxy, const std::string& client_id);
+   int logTransfer(const string& remote_proxy, const std::string& client_id);
    int runProxyLoop();
    int setLocalProxy();
    int tcpDial(const std::string& host, int port);

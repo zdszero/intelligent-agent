@@ -24,7 +24,14 @@ int main(int argc, char *argv[]) {
     // }
     ZZElement zz(1, "zz1", "default_cert");
     LogClient cli(&zz);
-    cli.Connect(Addr{"127.0.0.1", 30071});
+    cli.Connect(Addr{"172.16.1.58", 30071});
+    for (size_t i = 0; i < 10; i++) {
+        cli.Send();
+        sleep(1);
+    }
+    cli.Close();
+    sleep(3);
+    cli.Connect(Addr{"zds-704", 30071});
     for (size_t i = 0; i < 10; i++) {
         cli.Send();
         sleep(1);

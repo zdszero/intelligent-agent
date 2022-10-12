@@ -49,6 +49,7 @@ class LogClient {
     LogClient(ZZElement* zz, const std::vector<Addr>& addrs) : zz_(zz), entry_points_(addrs) {}
     LogClient(ZZElement* zz, const Addr& addr) : zz_(zz), entry_points_(std::vector<Addr>{addr}) {}
     bool Connect(const Addr& addr);
+    void Close();
     void Send();
 
    private:

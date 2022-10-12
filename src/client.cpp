@@ -46,12 +46,15 @@ bool LogClient::Connect(const Addr& addr) {
     if (connect(sockfd_, (struct sockaddr*)&sockaddr, sizeof(sockaddr)) < 0) {
         perror("client connect failed");
         close(sockfd_);
-        close(sockfd_);
         return false;
     }
     cur_addr_ = addr;
     IOWrapper::SendSysMsg(sockfd_, MsgWrapper::wrap(zz_->Name()));
     return true;
+}
+
+void LogClient::Close() {
+    close(sockfd_);
 }
 
 void LogClient::Send() {

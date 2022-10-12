@@ -7,6 +7,7 @@
 void TransferConn::Init(int sockfd, const sockaddr_in& addr, RedisConn* rconn, RedisConn* rconnm, char* host_name,
                         int epollfd) {
     sockfd_ = sockfd;
+    peer_addr_ = addr;
     redis_conn_ = rconn;
     epollfd_ = epollfd;
     IOWrapper::AddFd(epollfd_, sockfd, true);
@@ -18,25 +19,26 @@ void TransferConn::CloseConn() {
 }
 
 void TransferConn::Process() {
+    // TODO: cert
     struct sockaddr addr;
     socklen_t socklen;
-    DPrintf("Tranver_process\n");
-    while (true) {
-        int fd = accept(sockfd_, &addr, &socklen);
-        // get client id from peer
-        SysMsg msg;
-        if (!IOWrapper::ReadSysMsg(fd, msg, true)) {
-            fprintf(stderr, "TraverseConn fail to receive client address from peer\n");
-            exit(1);
-        }
-        std::string client_id(msg.buf);
-        // get all the log entries from redis
-        std::vector<std::string> log_entries;
-        redis_conn_->getLog(client_id, log_entries);
-        for (const string& entry : log_entries) {
-            IOWrapper::SendSysMsg(fd, MsgWrapper::wrap(entry));
-        }
-        close(fd);
+    DPrintf("transfer process\n");
+    // get client id from peer
+    SysMsg msg;
+    if (!IOWrapper::ReadSysMsg(sockfd_, msg, true)) {
+        fprintf(stderr, "TraverseConn fail to receive client address from peer\n");
+        CloseConn();
+        return;
+    }
+    std::string client_id(msg.buf);
+    // get all the log entries from redis
+    std::vector<std::string> log_entries;
+    redis_conn_->getLog(client_id, log_entries);
+    for (const string& entry : log_entries) {
+        char buf[30];
+        inet_ntop(AF_INET, &peer_addr_.sin_addr, buf, sizeof(peer_addr_));
+        DPrintf("transter %s to %s\n", entry.c_str(), buf);
+        IOWrapper::SendSysMsg(sockfd_, MsgWrapper::wrap(entry));
     }
 }
 
@@ -92,7 +94,8 @@ std::string ProxyConn::parseClient() {
     return client_id;
 }
 
-int ProxyConn::logTraverse(const string& remote_proxy, const string& client_id_) {
+int ProxyConn::logTransfer(const string& remote_proxy, const string& client_id_) {
+    DPrintf("start transfer\n");
     int sockfd = tcpDial(remote_proxy, PROXY_TRANSFER_PORT);
     // send client id to peer
     SysMsg client_msg = MsgWrapper::wrap(client_id_);
