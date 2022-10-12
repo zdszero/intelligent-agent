@@ -1,13 +1,14 @@
 #include "server.h"
-#include "log.h"
 
 #include <fcntl.h>
 
-void TransferConn::Init(int sockfd, const sockaddr_in& addr, RedisConn* rconn, RedisConn* rconnm, char* host_name, int epollfd) {
+#include "log.h"
+
+void TransferConn::Init(int sockfd, const sockaddr_in& addr, RedisConn* rconn, RedisConn* rconnm, char* host_name,
+                        int epollfd) {
     sockfd_ = sockfd;
     redis_conn_ = rconn;
     epollfd_ = epollfd;
-
     IOWrapper::AddFd(epollfd_, sockfd, true);
 }
 
@@ -19,6 +20,7 @@ void TransferConn::CloseConn() {
 void TransferConn::Process() {
     struct sockaddr addr;
     socklen_t socklen;
+    DPrintf("Tranver_process\n");
     while (true) {
         int fd = accept(sockfd_, &addr, &socklen);
         // get client id from peer
@@ -62,8 +64,8 @@ void ProxyConn::CloseConn() {
     sockfd_ = -1;
 }
 
-
-void ProxyConn::Init(int sockfd, const sockaddr_in& addr, RedisConn* rconn, RedisConn* rconnm, char* host_name, int epollfd) {
+void ProxyConn::Init(int sockfd, const sockaddr_in& addr, RedisConn* rconn, RedisConn* rconnm, char* host_name,
+                     int epollfd) {
     sockfd_ = sockfd, address_ = addr;
     redis_conn_ = rconn;
     redis_conf_conn_ = rconnm;
@@ -80,6 +82,7 @@ int ProxyConn::setLocalProxy() { return redis_conf_conn_->setProxy_map(client_id
 
 std::string ProxyConn::parseClient() {
     SysMsg msg;
+    DPrintf("parseClient\n");
     if (!IOWrapper::ReadSysMsg(sockfd_, msg, true)) {
         return {""};
     }
@@ -107,7 +110,7 @@ int ProxyConn::logTraverse(const string& remote_proxy, const string& client_id_)
 int ProxyConn::runProxyLoop() {
     DPrintf("enter proxy loop\n");
     SysMsg msg;
-    while (IOWrapper::ReadSysMsg(sockfd_, msg, false)) {
+    while (IOWrapper::ReadSysMsg(sockfd_, msg, true)) {
         redis_conn_->appendLog(client_id_, msg.buf);
         free(msg.buf);
     }
@@ -115,36 +118,27 @@ int ProxyConn::runProxyLoop() {
 }
 
 void ProxyConn::Process() {
-    if (conn_status_ == ConnStatus::UNVERIFIED) {
-        client_id_ = parseClient();
-        DPrintf("connected with client %s\n", client_id_.c_str());
-        if (client_id_.size() == 0) {
-            CloseConn();
-            return;
-        }
-// #ifdef _WITH_CERT_
-//         if (!clientVarify()) {
-//             close_conn();
-//             return;
-//         }
-// #endif
-        // string prevProxy = getPrevProxy();
-        // if (!prevProxy.empty() && prevProxy.compare(host_) != 0) {
-        //     logTraverse(prevProxy, client_id_);
-        // }
-        // if (setLocalProxy() < 0) {
-        //     CloseConn();
-        //     return;
-        // }
-        conn_status_ = ConnStatus::CONNECTED;
-    } else if (conn_status_ == ConnStatus::CONNECTED) {
-        int ret = runProxyLoop();
-        if (ret < 0) {
-            CloseConn();
-        }
-    } else {
+    client_id_ = parseClient();
+    DPrintf("connected with client %s\n", client_id_.c_str());
+    if (client_id_.size() == 0) {
         CloseConn();
+        return;
     }
-    IOWrapper::ModFd(epollfd_, sockfd_, EPOLLOUT);
-    
+    // #ifdef _WITH_CERT_
+    //         if (!clientVarify()) {
+    //             close_conn();
+    //             return;
+    //         }
+    // #endif
+    // string prevProxy = getPrevProxy();
+    // if (!prevProxy.empty() && prevProxy.compare(host_) != 0) {
+    //     logTraverse(prevProxy, client_id_);
+    // }
+    // if (setLocalProxy() < 0) {
+    //     CloseConn();
+    //     return;
+    // }
+    runProxyLoop();
+    CloseConn();
+    // IOWrapper::ModFd(epollfd_, sockfd_, EPOLLOUT);
 }

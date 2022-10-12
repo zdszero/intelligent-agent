@@ -7,6 +7,7 @@
 
 #include <string>
 
+#include "log.h"
 #include "sysmsg.h"
 
 class IOWrapper {
@@ -54,13 +55,13 @@ class IOWrapper {
     }
 
     static bool ReadSysMsg(int fd, SysMsg &msg, bool persist) {
-        char *buf = readBytes(4, fd, persist);
+        char *buf = readBytes(fd, 4, persist);
         if (buf == nullptr) {
             return false;
         }
         msg.len = *((uint32_t *)buf);
         free(buf);
-        buf = readBytes(msg.len, fd, true);
+        buf = readBytes(fd, msg.len, true);
         if (buf == nullptr) {
             return false;
         }
@@ -88,6 +89,7 @@ class IOWrapper {
             }
             read_idx += bytes_read;
         }
+        buf[len] = '\0';
         return buf;
     }
 

@@ -45,8 +45,8 @@ int main(int argc, char* argv[]) {
     }
 
     RedisConn redis_local, redis_remote;
-    redis_local.connect("localhost", 5375);
-    redis_remote.connect("localhost", 5375);
+    redis_local.connect("localhost", 7777);
+    redis_remote.connect("localhost", 7777);
 
     char host_name[MAX_HOST_LEN];
 
@@ -58,7 +58,7 @@ int main(int argc, char* argv[]) {
     try {
         proxy_pool = new threadpool<ProxyConn>(2, 1000);
         tranv_pool = new threadpool<TransferConn>(2, 1000);
-    } catch (std::exception &e) {
+    } catch (std::exception& e) {
         return -1;
     }
 
@@ -117,10 +117,8 @@ int main(int argc, char* argv[]) {
                     continue;
                 }
                 conn_type[connfd] = SERVER_PROXY;
-                if (!proxy_clients[connfd].Inited()) {
-                    proxy_clients[connfd].Init(connfd, client_addr, &redis_local, &redis_remote, host_name, epollfd);
-                }
-                proxy_clients[connfd].Process();
+                DPrintf("get client\n");
+                proxy_clients[connfd].Init(connfd, client_addr, &redis_local, &redis_remote, host_name, epollfd);
             }
             if (sockfd == tranv_fd) {
                 sockaddr_in client_addr;
@@ -130,6 +128,7 @@ int main(int argc, char* argv[]) {
                     continue;
                 }
                 conn_type[connfd] = SERVER_TRANV;
+                DPrintf("get client\n");
                 tranv_clients[connfd].Init(connfd, client_addr, &redis_local, &redis_remote, host_name, epollfd);
             } else if (events[i].events & (EPOLLRDHUP | EPOLLHUP | EPOLLERR)) {
                 if (conn_type[sockfd] == SERVER_PROXY) {
@@ -138,9 +137,11 @@ int main(int argc, char* argv[]) {
                     tranv_clients[sockfd].CloseConn();
                 }
             } else if (events[i].events | EPOLLIN) {
+                DPrintf("getMsg\n");
                 if (conn_type[sockfd] == SERVER_PROXY) {
                     proxy_pool->append(&proxy_clients[sockfd]);
-                } else {
+                }
+                if (conn_type[sockfd] == SERVER_TRANV) {
                     tranv_pool->append(&tranv_clients[sockfd]);
                 }
             }

@@ -15,7 +15,7 @@ struct SysMsg {
         data[1] = ptr[1];
         data[2] = ptr[2];
         data[3] = ptr[3];
-        strcpy(data + 1, buf);
+        strcpy(data + 4 , buf);
         return data;
     }
 };

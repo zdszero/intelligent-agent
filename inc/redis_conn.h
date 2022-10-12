@@ -20,11 +20,9 @@ class RedisConn {
         return 1;
     }
 
-    void appendLog(const std::string &client_id, std::string& log) {
-        appendLog(client_id, log.c_str());
-    }
+    void appendLog(const std::string& client_id, std::string& log) { appendLog(client_id, log.c_str()); }
 
-    void appendLog(const std::string &client_id, const char* log) {
+    void appendLog(const std::string& client_id, const char* log) {
         DPrintf("rpush %s:%s\n", client_id.c_str(), log);
         redisCommand(this->_connect, "RPUSH %s %s", client_id.c_str(), log);
     }

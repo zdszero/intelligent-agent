@@ -46,6 +46,7 @@ bool LogClient::Connect(const Addr& addr) {
     if (connect(sockfd_, (struct sockaddr*)&sockaddr, sizeof(sockaddr)) < 0) {
         perror("client connect failed");
         close(sockfd_);
+        close(sockfd_);
         return false;
     }
     cur_addr_ = addr;

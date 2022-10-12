@@ -95,6 +95,7 @@ void threadpool<T>::run() {
         if (request == nullptr) {
             continue;
         }
+        DPrintf("process request\n");
         request->Process();
     }
 }

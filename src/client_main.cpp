@@ -27,5 +27,6 @@ int main(int argc, char *argv[]) {
     cli.Connect(Addr{"127.0.0.1", 30071});
     for (size_t i = 0; i < 10; i++) {
         cli.Send();
+        sleep(1);
     }
 }
