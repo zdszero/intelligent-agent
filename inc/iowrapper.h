@@ -47,11 +47,13 @@ class IOWrapper {
 
     static void SendSysMsg(int fd, const SysMsg &msg) {
         size_t send_len = sizeof(uint32_t) + strlen(msg.buf);
-        const char *data = msg.Serialized();
+        char *data = msg.Serialized();
+        free(msg.buf);
         if (!sendBytes(fd, data, send_len)) {
             fprintf(stderr, "Fail to send SysMsg\n");
             exit(1);
         }
+        free(data);
     }
 
     static bool ReadSysMsg(int fd, SysMsg &msg, bool persist) {

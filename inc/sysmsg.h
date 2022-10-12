@@ -8,7 +8,7 @@
 struct SysMsg {
     uint32_t len;
     char* buf;
-    const char* Serialized() const {
+    char* Serialized() const {
         char* ptr = (char*)&len;
         char* data = (char*)malloc(sizeof(uint32_t) + sizeof(char) * (len + 1));
         data[0] = ptr[0];
@@ -26,14 +26,14 @@ class MsgWrapper {
     static SysMsg wrap(const std::string& s) {
         SysMsg msg;
         msg.len = s.size();
-        msg.buf = (char*)malloc(sizeof(msg.len));
+        msg.buf = (char*)malloc(msg.len+1);
         strcpy(msg.buf, s.c_str());
         return msg;
     }
     static SysMsg wrap(const char* m) {
         SysMsg msg;
         msg.len = strlen(m);
-        msg.buf = (char*)malloc(sizeof(msg.len));
+        msg.buf = (char*)malloc(msg.len+1);
         strcpy(msg.buf, m);
         return msg;
     }

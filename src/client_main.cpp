@@ -27,13 +27,13 @@ int main(int argc, char *argv[]) {
     cli.Connect(Addr{"172.16.1.58", 30071});
     for (size_t i = 0; i < 10; i++) {
         cli.Send();
-        sleep(1);
+        std::this_thread::sleep_for(std::chrono::milliseconds(200));
     }
     cli.Close();
-    sleep(3);
-    cli.Connect(Addr{"zds-704", 30071});
+    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    cli.Connect(Addr{"172.16.1.145", 30071});
     for (size_t i = 0; i < 10; i++) {
         cli.Send();
-        sleep(1);
+        std::this_thread::sleep_for(std::chrono::milliseconds(200));
     }
 }
