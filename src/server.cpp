@@ -133,14 +133,14 @@ void ProxyConn::Process() {
     //             return;
     //         }
     // #endif
-    // string prevProxy = getPrevProxy();
-    // if (!prevProxy.empty() && prevProxy.compare(host_) != 0) {
-    //     logTraverse(prevProxy, client_id_);
-    // }
-    // if (setLocalProxy() < 0) {
-    //     CloseConn();
-    //     return;
-    // }
+    string prevProxy = getPrevProxy();
+    if (!prevProxy.empty() && prevProxy.compare(host_) != 0) {
+        logTransfer(prevProxy, client_id_);
+    }
+    if (setLocalProxy() < 0) {
+        CloseConn();
+        return;
+    }
     runProxyLoop();
     CloseConn();
     // IOWrapper::ModFd(epollfd_, sockfd_, EPOLLOUT);
