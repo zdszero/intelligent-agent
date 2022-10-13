@@ -10,11 +10,11 @@
 class RedisConn {
    public:
     RedisConn() {}
-    ~RedisConn() { this->_connect = NULL; }
+    ~RedisConn() { this->connect_ = NULL; }
     bool Connect(std::string host, int port) {
-        this->_connect = redisConnect(host.c_str(), port);
-        if (this->_connect != NULL && this->_connect->err) {
-            printf("connect error: %s\n", this->_connect->errstr);
+        this->connect_ = redisConnect(host.c_str(), port);
+        if (this->connect_ != NULL && this->connect_->err) {
+            printf("connect error: %s\n", this->connect_->errstr);
             return 0;
         }
         return 1;
@@ -24,7 +24,7 @@ class RedisConn {
 
     void AppendLog(const std::string& client_id, const char* log) {
         DPrintf("rpush %s:%s\n", client_id.c_str(), log);
-        redisCommand(this->_connect, "RPUSH %s %s", client_id.c_str(), log);
+        redisCommand(this->connect_, "RPUSH %s %s", client_id.c_str(), log);
     }
 
     void AppendLog(std::string client_id, std::vector<std::string>& logs) {
@@ -35,12 +35,12 @@ class RedisConn {
         for (auto& log : logs) {
             sr += " " + log;
         }
-        redisCommand(this->_connect, "RPUSH %s %s", client_id.c_str(), sr.c_str());
+        redisCommand(this->connect_, "RPUSH %s %s", client_id.c_str(), sr.c_str());
     }
 
     // res 传引用，获取结果以存入res
     void GetLog(std::string client_id, std::vector<std::string>& res) {
-        redisReply* _reply = (redisReply*)redisCommand(this->_connect, "LRANGE %s 0 -1", client_id.c_str());
+        redisReply* _reply = (redisReply*)redisCommand(this->connect_, "LRANGE %s 0 -1", client_id.c_str());
         if (_reply->type == REDIS_REPLY_ARRAY) {
             for (int i = 0; i < _reply->elements; ++i) {
                 res.push_back(_reply->element[i]->str);
@@ -49,19 +49,19 @@ class RedisConn {
     }
 
     std::string GetProxyMap(std::string& client_name) {
-        redisReply* _reply = (redisReply*)redisCommand(this->_connect, "HGET proxy_map %s", client_name.c_str());
+        redisReply* reply_ = (redisReply*)redisCommand(this->connect_, "HGET proxy_map %s", client_name.c_str());
         std::string str;
-        if (true) {
-            str = std::string{_reply->str};
+        if (reply_->type == REDIS_REPLY_STRING) {
+            str = std::string{reply_->str};
         }
-        freeReplyObject(_reply);
+        freeReplyObject(reply_);
         return str;
     }
 
     int SetProxyMap(std::string& client_name, const char* host_name) {
         DPrintf("HSET proxy_map %s %s\n", client_name.c_str(), host_name);
         redisReply* _reply =
-            (redisReply*)redisCommand(this->_connect, "HSET proxy_map %s %s", client_name.c_str(), host_name);
+            (redisReply*)redisCommand(this->connect_, "HSET proxy_map %s %s", client_name.c_str(), host_name);
         if (_reply->type == REDIS_REPLY_ERROR) {
             return -1;
         }
@@ -69,5 +69,5 @@ class RedisConn {
     }
 
    private:
-    redisContext* _connect;
+    redisContext* connect_;
 };
