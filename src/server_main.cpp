@@ -151,7 +151,7 @@ int main(int argc, char* argv[]) {
                 } else {
                     tranv_clients[sockfd].CloseConn();
                 }
-            } else if (events[i].events | EPOLLIN) {
+            } else if (events[i].events & EPOLLIN) {
                 if (conn_type[sockfd] == SERVER_PROXY) {
                     proxy_pool->append(&proxy_clients[sockfd]);
                 }
