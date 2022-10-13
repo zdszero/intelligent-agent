@@ -34,11 +34,17 @@ void TransferConn::Process() {
     // get all the log entries from redis
     std::vector<std::string> log_entries;
     redis_conn_->GetLog(client_id, log_entries);
+    IOWrapper::SendSysMsg(sockfd_, MsgWrapper::wrap(std::to_string(log_entries.size())));
     for (const string& entry : log_entries) {
         char buf[30];
         inet_ntop(AF_INET, &peer_addr_.sin_addr, buf, sizeof(peer_addr_));
         DPrintf("transter %s to %s\n", entry.c_str(), buf);
         IOWrapper::SendSysMsg(sockfd_, MsgWrapper::wrap(entry));
+    }
+    shutdown(sockfd_, SHUT_WR);
+    IOWrapper::ReadSysMsg(sockfd_, msg, true);
+    if (msg.buf) {
+        free(msg.buf);
     }
     CloseConn();
 }
@@ -102,10 +108,23 @@ int ProxyConn::logTransfer(const string& remote_proxy, const string& client_id_)
     IOWrapper::SendSysMsg(sockfd, client_msg);
     // read data from peer
     SysMsg msg;
-    while (IOWrapper::ReadSysMsg(sockfd, msg, true)) {
+    if (!IOWrapper::ReadSysMsg(sockfd, msg, true)) {
+        fprintf(stderr, "logTransfer fail to get entry count\n");
+        CloseConn();
+        return -1;
+    }
+    size_t count = std::atoi(msg.buf);
+    free(msg.buf);
+    for (size_t i = 0; i < count; i++) {
+        if (!IOWrapper::ReadSysMsg(sockfd, msg, true)) {
+            fprintf(stderr, "logTransfer fail to get %ld entry\n", i);
+            CloseConn();
+            return -1;
+        }
         redis_conn_->AppendLog(client_id_, msg.buf);
         free(msg.buf);
     }
+    // IOWrapper::SendSysMsg(sockfd, MsgWrapper::wrap("transfer_end"));
     DPrintf("exit log transfer loop\n");
     close(sockfd);
     return msg.len;
