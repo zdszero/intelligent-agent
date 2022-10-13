@@ -46,8 +46,8 @@ class IOWrapper {
     }
 
     static void SendSysMsg(int fd, const SysMsg &msg) {
-        size_t send_len = sizeof(uint32_t) + strlen(msg.buf);
-        char *data = msg.Serialized();
+        size_t send_len;
+        char *data = msg.Serialized(send_len);
         free(msg.buf);
         if (!sendBytes(fd, data, send_len)) {
             fprintf(stderr, "Fail to send SysMsg\n");
@@ -61,7 +61,7 @@ class IOWrapper {
         if (buf == nullptr) {
             return false;
         }
-        msg.len = *((uint32_t *)buf);
+        msg.len = *(reinterpret_cast<uint32_t *>(buf));
         free(buf);
         buf = readBytes(fd, msg.len, true);
         if (buf == nullptr) {
@@ -73,7 +73,7 @@ class IOWrapper {
 
    private:
     static char *readBytes(int fd, size_t len, bool persist) {
-        char *buf = (char *)malloc(sizeof(char) * (len + 1));
+        char *buf = (char *)malloc(len);
         int read_idx = 0;
         size_t bytes_read;
         while (read_idx != len) {
@@ -91,7 +91,6 @@ class IOWrapper {
             }
             read_idx += bytes_read;
         }
-        buf[len] = '\0';
         return buf;
     }
 
