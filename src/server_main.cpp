@@ -33,6 +33,21 @@ void show_error(int connfd, const char* info) {
     close(connfd);
 }
 
+std::string GetLocalIPv4() {
+    std::string cmd = "ip addr | grep 'inet ' | awk '{print $2}' | grep -v -P '\\.1/\\d+'";
+    FILE* fp = popen(cmd.c_str(), "r");
+    if (fp == NULL) {
+        return "";
+    }
+    std::string out = "";
+    char szBuffer[256];
+    while (fgets(szBuffer, sizeof(szBuffer), fp) != NULL) {
+        out += std::string(szBuffer);
+    }
+    pclose(fp);
+    return out.substr(0, out.find('/'));
+}
+
 int main(int argc, char* argv[]) {
     const char* host = "0.0.0.0";
     int tranv_port = PROXY_TRANSFER_PORT;
@@ -48,9 +63,10 @@ int main(int argc, char* argv[]) {
     redis_local.Connect("localhost", 7777);
     redis_remote.Connect("zds-704", 7777);
 
-    char host_name[MAX_HOST_LEN];
+    // char host_name[MAX_HOST_LEN];
+    // gethostname(host_name, MAX_HOST_LEN);
 
-    gethostname(host_name, MAX_HOST_LEN);
+    string ipv4 = GetLocalIPv4();
     add_sig(SIGPIPE, SIG_IGN);
 
     threadpool<ProxyConn>* proxy_pool = NULL;
@@ -117,8 +133,7 @@ int main(int argc, char* argv[]) {
                     continue;
                 }
                 conn_type[connfd] = SERVER_PROXY;
-                DPrintf("get client\n");
-                proxy_clients[connfd].Init(connfd, client_addr, &redis_local, &redis_remote, host_name, epollfd);
+                proxy_clients[connfd].Init(connfd, client_addr, &redis_local, &redis_remote, ipv4.c_str(), epollfd);
             }
             if (sockfd == tranv_fd) {
                 sockaddr_in client_addr;
@@ -129,7 +144,7 @@ int main(int argc, char* argv[]) {
                 }
                 conn_type[connfd] = SERVER_TRANV;
                 DPrintf("get client\n");
-                tranv_clients[connfd].Init(connfd, client_addr, &redis_local, &redis_remote, host_name, epollfd);
+                tranv_clients[connfd].Init(connfd, client_addr, &redis_local, &redis_remote, ipv4.c_str(), epollfd);
             } else if (events[i].events & (EPOLLRDHUP | EPOLLHUP | EPOLLERR)) {
                 if (conn_type[sockfd] == SERVER_PROXY) {
                     proxy_clients[sockfd].CloseConn();
@@ -137,7 +152,6 @@ int main(int argc, char* argv[]) {
                     tranv_clients[sockfd].CloseConn();
                 }
             } else if (events[i].events | EPOLLIN) {
-                DPrintf("getMsg\n");
                 if (conn_type[sockfd] == SERVER_PROXY) {
                     proxy_pool->append(&proxy_clients[sockfd]);
                 }

@@ -28,7 +28,7 @@ class TransferConn {
   public:
    TransferConn() = default;
    ~TransferConn() = default;
-   void Init(int sockfd, const sockaddr_in& addr, RedisConn* rconn, RedisConn* rconnm, char* host_name, int epollfd);
+   void Init(int sockfd, const sockaddr_in& addr, RedisConn* rconn, RedisConn* rconnm, const char* host_name, int epollfd);
    void Process();
    void CloseConn();
 
@@ -44,7 +44,7 @@ class ProxyConn {
   public:
    ProxyConn() = default;
    ~ProxyConn() = default;
-   void Init(int sockfd, const sockaddr_in& addr, RedisConn* rconn, RedisConn* rconnm, char* host_name, int epollfd);
+   void Init(int sockfd, const sockaddr_in& addr, RedisConn* rconn, RedisConn* rconnm, const char* host_name, int epollfd);
    void Process();
    void CloseConn();
    bool Inited() { return inited_; }
@@ -52,7 +52,7 @@ class ProxyConn {
   private:
    // host name and address
    int epollfd_;
-   char* host_;
+   const char* host_;
    sockaddr_in address_;
    bool inited_{false};
    ConnStatus conn_status_;

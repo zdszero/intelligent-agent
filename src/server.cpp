@@ -4,7 +4,7 @@
 
 #include "log.h"
 
-void TransferConn::Init(int sockfd, const sockaddr_in& addr, RedisConn* rconn, RedisConn* rconnm, char* host_name,
+void TransferConn::Init(int sockfd, const sockaddr_in& addr, RedisConn* rconn, RedisConn* rconnm, const char* host_name,
                         int epollfd) {
     sockfd_ = sockfd;
     peer_addr_ = addr;
@@ -22,7 +22,7 @@ void TransferConn::Process() {
     // TODO: cert
     struct sockaddr addr;
     socklen_t socklen;
-    DPrintf("transfer process\n");
+    DPrintf("transfer send process\n");
     // get client id from peer
     SysMsg msg;
     if (!IOWrapper::ReadSysMsg(sockfd_, msg, true)) {
@@ -40,6 +40,7 @@ void TransferConn::Process() {
         DPrintf("transter %s to %s\n", entry.c_str(), buf);
         IOWrapper::SendSysMsg(sockfd_, MsgWrapper::wrap(entry));
     }
+    CloseConn();
 }
 
 int ProxyConn::tcpDial(const std::string& host, int port) {
@@ -66,7 +67,7 @@ void ProxyConn::CloseConn() {
     sockfd_ = -1;
 }
 
-void ProxyConn::Init(int sockfd, const sockaddr_in& addr, RedisConn* rconn, RedisConn* rconnm, char* host_name,
+void ProxyConn::Init(int sockfd, const sockaddr_in& addr, RedisConn* rconn, RedisConn* rconnm, const char* host_name,
                      int epollfd) {
     sockfd_ = sockfd, address_ = addr;
     redis_conn_ = rconn;
@@ -84,7 +85,6 @@ int ProxyConn::setLocalProxy() { return redis_conf_conn_->SetProxyMap(client_id_
 
 std::string ProxyConn::parseClient() {
     SysMsg msg;
-    DPrintf("parseClient\n");
     if (!IOWrapper::ReadSysMsg(sockfd_, msg, true)) {
         return {""};
     }
@@ -95,7 +95,7 @@ std::string ProxyConn::parseClient() {
 }
 
 int ProxyConn::logTransfer(const string& remote_proxy, const string& client_id_) {
-    DPrintf("start transfer\n");
+    DPrintf("transfer fetch process\n");
     int sockfd = tcpDial(remote_proxy, PROXY_TRANSFER_PORT);
     // send client id to peer
     SysMsg client_msg = MsgWrapper::wrap(client_id_);
@@ -106,6 +106,7 @@ int ProxyConn::logTransfer(const string& remote_proxy, const string& client_id_)
         redis_conn_->AppendLog(client_id_, msg.buf);
         free(msg.buf);
     }
+    DPrintf("exit log transfer loop\n");
     close(sockfd);
     return msg.len;
 }

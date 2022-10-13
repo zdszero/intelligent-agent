@@ -24,14 +24,14 @@ int main(int argc, char *argv[]) {
     // }
     ZZElement zz(1, "zz1", "default_cert");
     LogClient cli(&zz);
-    cli.Connect(Addr{"172.16.1.145", 30071});
+    cli.Connect(Addr{"172.16.1.58", 30071});
     for (size_t i = 0; i < 10; i++) {
         cli.Send();
         std::this_thread::sleep_for(std::chrono::milliseconds(200));
     }
     cli.Close();
-    std::this_thread::sleep_for(std::chrono::milliseconds(500));
-    cli.Connect(Addr{"172.16.1.58", 30071});
+    std::this_thread::sleep_for(std::chrono::milliseconds(2000));
+    cli.Connect(Addr{"172.16.1.145", 30071});
     for (size_t i = 0; i < 10; i++) {
         cli.Send();
         std::this_thread::sleep_for(std::chrono::milliseconds(200));
