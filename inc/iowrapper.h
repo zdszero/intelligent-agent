@@ -10,10 +10,10 @@
 #include "log.h"
 #include "sysmsg.h"
 
-class IOWrapper {
+class IO {
    public:
-    IOWrapper() = default;
-    ~IOWrapper() = default;
+    IO() = default;
+    ~IO() = default;
 
     static int SetNonBlocking(int fd) {
         int old_op = fcntl(fd, F_GETFL);

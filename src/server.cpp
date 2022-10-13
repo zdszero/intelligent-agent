@@ -10,11 +10,11 @@ void TransferConn::Init(int sockfd, const sockaddr_in& addr, RedisConn* rconn, R
     peer_addr_ = addr;
     redis_conn_ = rconn;
     epollfd_ = epollfd;
-    IOWrapper::AddFd(epollfd_, sockfd, true);
+    IO::AddFd(epollfd_, sockfd, true);
 }
 
 void TransferConn::CloseConn() {
-    IOWrapper::RemoveFd(epollfd_, sockfd_);
+    IO::RemoveFd(epollfd_, sockfd_);
     sockfd_ = -1;
 }
 
@@ -25,7 +25,7 @@ void TransferConn::Process() {
     DPrintf("transfer send process\n");
     // get client id from peer
     SysMsg msg;
-    if (!IOWrapper::ReadSysMsg(sockfd_, msg, true)) {
+    if (!IO::ReadSysMsg(sockfd_, msg, true)) {
         fprintf(stderr, "TraverseConn fail to receive client address from peer\n");
         CloseConn();
         return;
@@ -34,15 +34,15 @@ void TransferConn::Process() {
     // get all the log entries from redis
     std::vector<std::string> log_entries;
     redis_conn_->GetLog(client_id, log_entries);
-    IOWrapper::SendSysMsg(sockfd_, MsgWrapper::wrap(std::to_string(log_entries.size())));
+    IO::SendSysMsg(sockfd_, SysMsg(std::to_string(log_entries.size())));
     for (const string& entry : log_entries) {
         char buf[30];
         inet_ntop(AF_INET, &peer_addr_.sin_addr, buf, sizeof(peer_addr_));
         DPrintf("transter %s to %s\n", entry.c_str(), buf);
-        IOWrapper::SendSysMsg(sockfd_, MsgWrapper::wrap(entry));
+        IO::SendSysMsg(sockfd_, SysMsg(entry));
     }
     shutdown(sockfd_, SHUT_WR);
-    IOWrapper::ReadSysMsg(sockfd_, msg, true);
+    IO::ReadSysMsg(sockfd_, msg, true);
     if (msg.buf) {
         free(msg.buf);
     }
@@ -60,7 +60,7 @@ int ProxyConn::tcpDial(const std::string& host, int port) {
 #else
     int sockfd = socket(AF_INET, SOCK_STREAM, 0);
 #endif
-    IOWrapper::SetNonBlocking(sockfd);
+    IO::SetNonBlocking(sockfd);
     int ret = connect(sockfd, (struct sockaddr*)&address, sizeof(address));
     if (ret == 0 || errno == EINPROGRESS) {
         return sockfd;
@@ -69,7 +69,7 @@ int ProxyConn::tcpDial(const std::string& host, int port) {
 }
 
 void ProxyConn::CloseConn() {
-    IOWrapper::RemoveFd(epollfd_, sockfd_);
+    IO::RemoveFd(epollfd_, sockfd_);
     sockfd_ = -1;
 }
 
@@ -82,7 +82,7 @@ void ProxyConn::Init(int sockfd, const sockaddr_in& addr, RedisConn* rconn, Redi
     epollfd_ = epollfd;
     conn_status_ = ConnStatus::UNVERIFIED;
     inited_ = true;
-    IOWrapper::AddFd(epollfd, sockfd, true);
+    IO::AddFd(epollfd, sockfd, true);
 }
 
 std::string ProxyConn::getPrevProxy() { return redis_conf_conn_->GetProxyMap(client_id_); }
@@ -91,7 +91,7 @@ int ProxyConn::setLocalProxy() { return redis_conf_conn_->SetProxyMap(client_id_
 
 std::string ProxyConn::parseClient() {
     SysMsg msg;
-    if (!IOWrapper::ReadSysMsg(sockfd_, msg, true)) {
+    if (!IO::ReadSysMsg(sockfd_, msg, true)) {
         return {""};
     }
     string client_id = string(msg.buf);
@@ -104,11 +104,11 @@ int ProxyConn::logTransfer(const string& remote_proxy, const string& client_id_)
     DPrintf("transfer fetch process\n");
     int sockfd = tcpDial(remote_proxy, PROXY_TRANSFER_PORT);
     // send client id to peer
-    SysMsg client_msg = MsgWrapper::wrap(client_id_);
-    IOWrapper::SendSysMsg(sockfd, client_msg);
+    SysMsg client_msg = SysMsg(client_id_);
+    IO::SendSysMsg(sockfd, client_msg);
     // read data from peer
     SysMsg msg;
-    if (!IOWrapper::ReadSysMsg(sockfd, msg, true)) {
+    if (!IO::ReadSysMsg(sockfd, msg, true)) {
         fprintf(stderr, "logTransfer fail to get entry count\n");
         CloseConn();
         return -1;
@@ -116,7 +116,7 @@ int ProxyConn::logTransfer(const string& remote_proxy, const string& client_id_)
     size_t count = std::atoi(msg.buf);
     free(msg.buf);
     for (size_t i = 0; i < count; i++) {
-        if (!IOWrapper::ReadSysMsg(sockfd, msg, true)) {
+        if (!IO::ReadSysMsg(sockfd, msg, true)) {
             fprintf(stderr, "logTransfer fail to get %ld entry\n", i);
             CloseConn();
             return -1;
@@ -124,7 +124,7 @@ int ProxyConn::logTransfer(const string& remote_proxy, const string& client_id_)
         redis_conn_->AppendLog(client_id_, msg.buf);
         free(msg.buf);
     }
-    // IOWrapper::SendSysMsg(sockfd, MsgWrapper::wrap("transfer_end"));
+    // IOWrapper::SendSysMsg(sockfd, SysMsg("transfer_end"));
     DPrintf("exit log transfer loop\n");
     close(sockfd);
     return msg.len;
@@ -133,7 +133,7 @@ int ProxyConn::logTransfer(const string& remote_proxy, const string& client_id_)
 int ProxyConn::runProxyLoop() {
     DPrintf("enter proxy loop\n");
     SysMsg msg;
-    while (IOWrapper::ReadSysMsg(sockfd_, msg, true)) {
+    while (IO::ReadSysMsg(sockfd_, msg, true)) {
         redis_conn_->AppendLog(client_id_, msg.buf);
         free(msg.buf);
     }

@@ -49,7 +49,7 @@ bool LogClient::Connect(const Addr& addr) {
         return false;
     }
     cur_addr_ = addr;
-    IOWrapper::SendSysMsg(sockfd_, MsgWrapper::wrap(zz_->Name()));
+    IO::SendSysMsg(sockfd_, SysMsg(zz_->Name()));
     return true;
 }
 
@@ -59,6 +59,6 @@ void LogClient::Close() {
 
 void LogClient::Send() {
     std::string msg = zz_->GenerateMessage();
-    IOWrapper::SendSysMsg(sockfd_, MsgWrapper::wrap(msg));
+    IO::SendSysMsg(sockfd_, SysMsg(msg));
     DPrintf("send %s to %s\n", msg.c_str(), cur_addr_.GetAddrInfo().c_str());
 }
