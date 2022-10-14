@@ -11,13 +11,14 @@ class RedisConn {
    public:
     RedisConn() {}
     ~RedisConn() { this->connect_ = NULL; }
-    bool Connect(std::string host, int port) {
-        this->connect_ = redisConnect(host.c_str(), port);
-        if (this->connect_ != NULL && this->connect_->err) {
+    bool Connect(const std::string &host, int port) {
+        struct timeval timeout = { 3, 0 };
+        this->connect_ = redisConnectWithTimeout(host.c_str(), port, timeout);
+        if (this->connect_ == nullptr || this->connect_->err) {
             printf("connect error: %s\n", this->connect_->errstr);
-            return 0;
+            return false;
         }
-        return 1;
+        return true;
     }
 
     void AppendLog(const std::string& client_id, std::string& log) { AppendLog(client_id, log.c_str()); }

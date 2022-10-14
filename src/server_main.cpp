@@ -40,9 +40,9 @@ std::string GetLocalIPv4() {
         return "";
     }
     std::string out = "";
-    char szBuffer[256];
-    while (fgets(szBuffer, sizeof(szBuffer), fp) != NULL) {
-        out += std::string(szBuffer);
+    char buf[256];
+    while (fgets(buf, 256, fp) != NULL) {
+        out += std::string(buf);
     }
     pclose(fp);
     return out.substr(0, out.find('/'));
@@ -60,8 +60,29 @@ int main(int argc, char* argv[]) {
     }
 
     RedisConn redis_local, redis_remote;
-    redis_local.Connect("localhost", 7777);
-    redis_remote.Connect("zds-704", 7777);
+    if (!redis_local.Connect("localhost", 7777)) {
+        fprintf(stderr, "error: fail to connect to local redis\n");
+        exit(EXIT_FAILURE);
+    }
+
+    char* remote_redis = getenv("REMOTE_REDIS");
+    std::string ip = "zds-704";
+    int port = 7777;
+    if (remote_redis) {
+        std::string s(remote_redis);
+        size_t pos = s.find(':');
+        if (pos != std::string::npos) {
+            ip = s.substr(0, pos);
+            port = std::stoi(s.substr(pos+1));
+        } else {
+            ip = s;
+        }
+    }
+    DPrintf("remote redis = %s:%d\n", ip.c_str(), port);
+    if (!redis_remote.Connect(ip, port)) {
+        fprintf(stderr, "error: fail to connect to remote redis\n");
+        exit(EXIT_FAILURE);
+    }
 
     // char host_name[MAX_HOST_LEN];
     // gethostname(host_name, MAX_HOST_LEN);
@@ -140,7 +161,8 @@ int main(int argc, char* argv[]) {
                 socklen_t client_addrlen = sizeof(client_addr);
                 int connfd = accept(tranv_fd, (sockaddr*)&client_addr, &client_addrlen);
                 if (connfd < 0) {
-                    continue;
+                    perror("accept");
+                    exit(EXIT_FAILURE);
                 }
                 conn_type[connfd] = SERVER_TRANV;
                 DPrintf("get client\n");

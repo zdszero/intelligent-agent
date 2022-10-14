@@ -22,6 +22,13 @@ class IO {
         return old_op;
     }
 
+    static int SetBlocking(int fd) {
+        int old_op = fcntl(fd, F_GETFL);
+        int new_op = old_op &= ~O_NONBLOCK;
+        fcntl(fd, F_SETFL, new_op);
+        return old_op;
+    }
+
     static void AddFd(int epollfd, int fd, bool one_shot) {
         epoll_event event;
         event.data.fd = fd;
@@ -29,12 +36,18 @@ class IO {
         if (one_shot) {
             event.events |= EPOLLONESHOT;
         }
-        epoll_ctl(epollfd, EPOLL_CTL_ADD, fd, &event);
+        if (epoll_ctl(epollfd, EPOLL_CTL_ADD, fd, &event) < 0) {
+            perror("epoll_ctl");
+            exit(EXIT_FAILURE);
+        }
         SetNonBlocking(fd);
     }
 
     static void RemoveFd(int epollfd, int fd) {
-        epoll_ctl(epollfd, EPOLL_CTL_DEL, fd, 0);
+        if (epoll_ctl(epollfd, EPOLL_CTL_DEL, fd, 0) < 0) {
+            perror("epoll_ctl");
+            exit(EXIT_FAILURE);
+        }
         close(fd);
     }
 
@@ -42,7 +55,10 @@ class IO {
         epoll_event event;
         event.data.fd = fd;
         event.events = ev | EPOLLIN | EPOLLET | EPOLLONESHOT | EPOLLHUP;
-        epoll_ctl(epollfd, EPOLL_CTL_MOD, fd, &event);
+        if (epoll_ctl(epollfd, EPOLL_CTL_MOD, fd, &event) < 0) {
+            perror("epoll_ctl");
+            exit(EXIT_FAILURE);
+        }
     }
 
     static void SendSysMsg(int fd, const SysMsg &msg) {
