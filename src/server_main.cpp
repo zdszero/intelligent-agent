@@ -88,6 +88,7 @@ int main(int argc, char* argv[]) {
     // gethostname(host_name, MAX_HOST_LEN);
 
     string ipv4 = GetLocalIPv4();
+    DPrintf("local ip = %s\n", ipv4.c_str());
     add_sig(SIGPIPE, SIG_IGN);
 
     threadpool<ProxyConn>* proxy_pool = NULL;
