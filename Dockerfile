@@ -1,8 +1,8 @@
-FROM gcc
+FROM ubuntu
 
-RUN sed -i 's/deb.debian.org/mirrors.ustc.edu.cn/g' /etc/apt/sources.list
+RUN sed -i 's/archive.ubuntu.com/mirrors.ustc.edu.cn/g' /etc/apt/sources.list
 RUN apt update
-RUN apt install -y cmake libhiredis-dev redis-server iproute2
+RUN apt install -y cmake libhiredis-dev redis-server iproute2 g++
 RUN mkdir -p /usr/src
 
 COPY . /usr/src/proxy_server
